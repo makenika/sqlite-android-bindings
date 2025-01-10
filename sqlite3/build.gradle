@@ -1,10 +1,13 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 29
+
+    namespace = "org.sqlite.database"
+
+    compileSdkVersion 34
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 29
         versionCode 1
         versionName "1.0"
@@ -34,7 +37,7 @@ android {
         }
     }
 
-    ndkVersion '21.3.6528147'
+    ndkVersion '28.0.12674087'
 
     useLibrary 'android.test.base' // for android.test.AndroidTestCase
     useLibrary 'android.test.runner' // for android.test.MoreAsserts
@@ -52,6 +55,6 @@ allprojects {
     repositories {
         // The order in which you list these repositories matter.
         google()
-        jcenter()
+        mavenCentral()
     }
 }

@@ -1,11 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
+    namespace = "org.sqlite.customsqlitetest"
+
     compileSdkVersion 29
 
     defaultConfig {
         applicationId "org.sqlite.customsqlitetest"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 29
         versionCode 1
         versionName "1.0"

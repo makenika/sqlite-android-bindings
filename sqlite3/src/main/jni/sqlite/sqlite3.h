@@ -146,9 +146,9 @@ extern "C" {
 ** [sqlite3_libversion_number()], [sqlite3_sourceid()],
 ** [sqlite_version()] and [sqlite_source_id()].
 */
-#define SQLITE_VERSION        "3.47.2"
-#define SQLITE_VERSION_NUMBER 3047002
-#define SQLITE_SOURCE_ID      "2024-12-07 20:39:59 2aabe05e2e8cae4847a802ee2daddc1d7413d8fc560254d93ee3e72c14685b6c"
+#define SQLITE_VERSION        "3.47.0"
+#define SQLITE_VERSION_NUMBER 3047000
+#define SQLITE_SOURCE_ID      "2025-01-10 17:36:51 04ea435d24a5a42046c6272b9f746529fa3da54944bdb9742c7ca88e25c479d8"
 
 /*
 ** CAPI3REF: Run-Time Library Version Numbers
@@ -652,13 +652,6 @@ SQLITE_API int sqlite3_exec(
 ** filesystem supports doing multiple write operations atomically when those
 ** write operations are bracketed by [SQLITE_FCNTL_BEGIN_ATOMIC_WRITE] and
 ** [SQLITE_FCNTL_COMMIT_ATOMIC_WRITE].
-**
-** The SQLITE_IOCAP_SUBPAGE_READ property means that it is ok to read
-** from the database file in amounts that are not a multiple of the
-** page size and that do not begin at a page boundary.  Without this
-** property, SQLite is careful to only do full-page reads and write
-** on aligned pages, with the one exception that it will do a sub-page
-** read of the first page to access the database header.
 */
 #define SQLITE_IOCAP_ATOMIC                 0x00000001
 #define SQLITE_IOCAP_ATOMIC512              0x00000002
@@ -675,7 +668,6 @@ SQLITE_API int sqlite3_exec(
 #define SQLITE_IOCAP_POWERSAFE_OVERWRITE    0x00001000
 #define SQLITE_IOCAP_IMMUTABLE              0x00002000
 #define SQLITE_IOCAP_BATCH_ATOMIC           0x00004000
-#define SQLITE_IOCAP_SUBPAGE_READ           0x00008000
 
 /*
 ** CAPI3REF: File Locking Levels
@@ -822,7 +814,6 @@ struct sqlite3_file {
 ** <li> [SQLITE_IOCAP_POWERSAFE_OVERWRITE]
 ** <li> [SQLITE_IOCAP_IMMUTABLE]
 ** <li> [SQLITE_IOCAP_BATCH_ATOMIC]
-** <li> [SQLITE_IOCAP_SUBPAGE_READ]
 ** </ul>
 **
 ** The SQLITE_IOCAP_ATOMIC property means that all writes of
@@ -4231,17 +4222,13 @@ SQLITE_API int sqlite3_limit(sqlite3*, int id, int newVal);
 ** and sqlite3_prepare16_v3() use UTF-16.
 **
 ** ^If the nByte argument is negative, then zSql is read up to the
-** first zero terminator. ^If nByte is positive, then it is the maximum
-** number of bytes read from zSql.  When nByte is positive, zSql is read
-** up to the first zero terminator or until the nByte bytes have been read,
-** whichever comes first.  ^If nByte is zero, then no prepared
+** first zero terminator. ^If nByte is positive, then it is the
+** number of bytes read from zSql.  ^If nByte is zero, then no prepared
 ** statement is generated.
 ** If the caller knows that the supplied string is nul-terminated, then
 ** there is a small performance advantage to passing an nByte parameter that
 ** is the number of bytes in the input string <i>including</i>
 ** the nul-terminator.
-** Note that nByte measure the length of the input in bytes, not
-** characters, even for the UTF-16 interfaces.
 **
 ** ^If pzTail is not NULL then *pzTail is made to point to the first byte
 ** past the end of the first SQL statement in zSql.  These routines only
@@ -5612,7 +5599,7 @@ SQLITE_API int sqlite3_create_window_function(
 ** This flag instructs SQLite to omit some corner-case optimizations that
 ** might disrupt the operation of the [sqlite3_value_subtype()] function,
 ** causing it to return zero rather than the correct subtype().
-** All SQL functions that invoke [sqlite3_value_subtype()] should have this
+** SQL functions that invokes [sqlite3_value_subtype()] should have this
 ** property.  If the SQLITE_SUBTYPE property is omitted, then the return
 ** value from [sqlite3_value_subtype()] might sometimes be zero even though
 ** a non-zero subtype was specified by the function argument expression.
@@ -8377,8 +8364,9 @@ SQLITE_API int sqlite3_test_control(int op, ...);
 #define SQLITE_TESTCTRL_TRACEFLAGS              31
 #define SQLITE_TESTCTRL_TUNE                    32
 #define SQLITE_TESTCTRL_LOGEST                  33
-#define SQLITE_TESTCTRL_USELONGDOUBLE           34  /* NOT USED */
-#define SQLITE_TESTCTRL_LAST                    34  /* Largest TESTCTRL */
+#define SQLITE_TESTCTRL_USELONGDOUBLE           34
+#define SQLITE_TESTCTRL_SCHEMACOPY              35
+#define SQLITE_TESTCTRL_LAST                    35  /* Largest TESTCTRL */
 
 /*
 ** CAPI3REF: SQL Keyword Checking
@@ -9353,16 +9341,6 @@ typedef struct sqlite3_backup sqlite3_backup;
 ** APIs are not strictly speaking threadsafe. If they are invoked at the
 ** same time as another thread is invoking sqlite3_backup_step() it is
 ** possible that they return invalid values.
-**
-** <b>Alternatives To Using The Backup API</b>
-**
-** Other techniques for safely creating a consistent backup of an SQLite
-** database include:
-**
-** <ul>
-** <li> The [VACUUM INTO] command.
-** <li> The [sqlite3_rsync] utility program.
-** </ul>
 */
 SQLITE_API sqlite3_backup *sqlite3_backup_init(
   sqlite3 *pDest,                        /* Destination database handle */
@@ -10562,14 +10540,6 @@ typedef struct sqlite3_snapshot {
 ** If there is not already a read-transaction open on schema S when
 ** this function is called, one is opened automatically.
 **
-** If a read-transaction is opened by this function, then it is guaranteed
-** that the returned snapshot object may not be invalidated by a database
-** writer or checkpointer until after the read-transaction is closed. This
-** is not guaranteed if a read-transaction is already open when this
-** function is called. In that case, any subsequent write or checkpoint
-** operation on the database may invalidate the returned snapshot handle,
-** even while the read-transaction remains open.
-**
 ** The following must be true for this function to succeed. If any of
 ** the following statements are false when sqlite3_snapshot_get() is
 ** called, SQLITE_ERROR is returned. The final value of *P is undefined
@@ -10725,6 +10695,31 @@ SQLITE_API SQLITE_EXPERIMENTAL int sqlite3_snapshot_cmp(
 SQLITE_API SQLITE_EXPERIMENTAL int sqlite3_snapshot_recover(sqlite3 *db, const char *zDb);
 
 /*
+** CAPI3REF: Wal related information regarding the most recent COMMIT
+** EXPERIMENTAL
+**
+** This function reports on the state of the wal file (if any) for database
+** zDb, which should be "main", "temp", or the name of the attached database.
+** Its results - the values written to the output parameters - are only
+** defined if the most recent SQL command on the connection was a successful
+** COMMIT that wrote data to wal-mode database zDb.
+**
+** Assuming the above conditions are met, output parameter (*pnFrame) is set
+** to the total number of frames in the wal file. Parameter (*pnPrior) is
+** set to the number of frames that were present in the wal file before the
+** most recent transaction was committed. So that the number of frames written
+** by the most recent transaction is (*pnFrame)-(*pnPrior).
+**
+** If successful, SQLITE_OK is returned. Otherwise, an SQLite error code. It
+** is not an error if this function is called at a time when the results
+** are undefined.
+*/
+SQLITE_API SQLITE_EXPERIMENTAL int sqlite3_wal_info(
+  sqlite3 *db, const char *zDb,
+  unsigned int *pnPrior, unsigned int *pnFrame
+);
+
+/*
 ** CAPI3REF: Serialize a database
 **
 ** The sqlite3_serialize(D,S,P,F) interface returns a pointer to memory
@@ -10866,6 +10861,119 @@ SQLITE_API int sqlite3_deserialize(
 #define SQLITE_DESERIALIZE_FREEONCLOSE 1 /* Call sqlite3_free() on close */
 #define SQLITE_DESERIALIZE_RESIZEABLE  2 /* Resize using sqlite3_realloc64() */
 #define SQLITE_DESERIALIZE_READONLY    4 /* Database is read-only */
+
+/*
+** Access details of recent COMMIT commands. This function allows various
+** details related to the most recent COMMIT command to be accessed.
+** The requested value is always returned via output parameter (*piVal).
+** The specific value requested is identified by parameter op (see
+** below).
+**
+** SQLITE_OK is returned if successful, or SQLITE_ERROR if the "op" or
+** "zDb" paramters are unrecognized.
+*/
+SQLITE_API int sqlite3_commit_status(
+  sqlite3 *db,                    /* Database handle */
+  const char *zDb,                /* Name of database - "main" etc. */
+  int op,                         /* SQLITE_COMMIT_XXX constant */
+  unsigned int *piVal             /* OUT: Write requested value here */
+);
+
+/*
+** The following describes the five requests supported by
+** sqlite3_commit_status(), each identified by an SQLITE_COMMIT_XXX
+** constant:
+**
+** SQLITE_COMMIT_FIRSTFRAME:
+**   In this case argument zDb must be "main", or "temp", or else the name of
+**   an attached database. If zDb does not correspond to any attached database,
+**   SQLITE_ERROR is returned.
+**
+**   The final value of (*piVal) for this request is only defined if (a) the
+**   most recent attempt to write to the database connection was successful,
+**   (b) the most recent attempt to write to the database did write to database
+**   zDb, and (c) zDb is a wal mode database.
+**
+**   If the above conditions are true, then output parameter (*piVal) is
+**   set to the frame number of the first frame written by the recent
+**   transaction. In wal mode, or in wal2 mode when a transaction is
+**   written into the *-wal file, the frame number indicates the frame's
+**   position in the wal file - frames are numbered starting from 1. In
+**   wal2 mode, when a transaction is written to the *-wal2 file, the frame
+**   number is the frame's position in the *-wal2 file, plus (1 << 31).
+**
+**   Note: Although the a database may have up to (1<<32) pages, each wal
+**   file may contain at most (1<<31) frames.
+**
+** SQLITE_COMMIT_NFRAME:
+**   zDb is interpreted in the same way as, and the final value of (*piVal)
+**   is undefined, for SQLITE_COMMIT_FIRSTFRAME.
+**
+**   Otherwise, (*piVal) is set to the number of frames written by the
+**   recent transaction.
+**
+** SQLITE_COMMIT_CONFLICT_DB:
+**   Parameter zDb is ignored for this request. The results of this
+**   request are only defined if the most recent attempt to write to
+**   the database handle was a BEGIN CONCURRENT transaction that
+**   failed with an SQLITE_BUSY_SNAPSHOT error.
+**
+**   In other cases, (*piVal) is set to the index of the database
+**   on which the SQLITE_BUSY_SNAPSHOT error occurred (0 for main,
+**   a value of 2 or greater for an attached database). This value
+**   may be used with the sqlite3_db_name() API to find the name
+**   of the conflicting database.
+**
+** SQLITE_COMMIT_CONFLICT_FRAME:
+**   Parameter zDb is ignored for this request. The results of this
+**   request are only defined if the most recent attempt to write to
+**   the database handle was a BEGIN CONCURRENT transaction that
+**   failed with an SQLITE_BUSY_SNAPSHOT error.
+**
+**   (*piVal) is set to the frame number of the conflicting frame for
+**   the recent SQLITE_BUSY_SNAPSHOT error. The conflicting transaction may
+**   be found by comparing this value with the FIRSTFRAME and
+**   NFRAME values for recent succesfully committed transactions on
+**   the same db. If the CONFLICT_FRAME value is F, then the conflicting
+**   transaction is the most recent successful commit for which
+**   (FIRSTFRAME <= F <= FIRSTFRAME+NFRAME) is true.
+**
+** SQLITE_COMMIT_CONFLICT_PGNO:
+**   Parameter zDb is ignored for this request. The results of this
+**   request are only defined if the previous attempt to write to
+**   the database using database handle db failed with
+**   SQLITE_BUSY_SNAPSHOT.
+**
+**   Return the page number of the conflicting page for the most
+**   recent SQLITE_BUSY_SNAPSHOT error.
+*/
+#define SQLITE_COMMIT_FIRSTFRAME     0
+#define SQLITE_COMMIT_NFRAME         1
+#define SQLITE_COMMIT_CONFLICT_DB    2
+#define SQLITE_COMMIT_CONFLICT_FRAME 3
+#define SQLITE_COMMIT_CONFLICT_PGNO  4
+
+/*
+** This function is used to copy an in-memory schema from one database
+** connection to another. Under some circumstances this may be faster than
+** loading it from the database.
+**
+** The target database is identified by parameters pTo and zTo, which must
+** be "main" or the name of an attached database. The source database is
+** identified by pFrom and zFrom. It is the responsibility of the caller
+** to ensure that these two database connections really access the same
+** underlying database file.
+**
+** This function is a no-op if either the database schema has already been
+** loaded for pTo/zTo, or if it has not yet been loaded for pFrom/zFrom. In
+** these cases SQLITE_OK is returned. Otherwise, the database schema from
+** pFrom/zFrom is copied into pTo/zTo. SQLITE_OK is returned if successful,
+** or SQLITE_NOMEM if an OOM error occurs.
+*/
+SQLITE_API int sqlite3_schema_copy(
+    sqlite3 *pTo, const char *zTo,
+    sqlite3 *pFrom, const char *zFrom
+);
 
 /*
 ** Undo the hack that converts floating point types to integer for
@@ -11381,6 +11489,32 @@ SQLITE_API int sqlite3session_changeset(
 );
 
 /*
+** CAPI3REF: Generate A Full Changeset From A Session Object
+**
+** This function is similar to sqlite3session_changeset(), except that for
+** each row affected by an UPDATE statement, all old.* values are recorded
+** as part of the changeset, not just those modified.
+*/
+SQLITE_API int sqlite3session_fullchangeset(
+  sqlite3_session *pSession,      /* Session object */
+  int *pnChangeset,               /* OUT: Size of buffer at *ppChangeset */
+  void **ppChangeset              /* OUT: Buffer containing changeset */
+);
+
+/*
+** CAPI3REF: Generate A Full Changeset From A Session Object
+**
+** This function is similar to sqlite3session_changeset(), except that for
+** each row affected by an UPDATE statement, all old.* values are recorded
+** as part of the changeset, not just those modified.
+*/
+SQLITE_API int sqlite3session_fullchangeset(
+  sqlite3_session *pSession,      /* Session object */
+  int *pnChangeset,               /* OUT: Size of buffer at *ppChangeset */
+  void **ppChangeset              /* OUT: Buffer containing changeset */
+);
+
+/*
 ** CAPI3REF: Return An Upper-limit For The Size Of The Changeset
 ** METHOD: sqlite3_session
 **
@@ -11580,12 +11714,16 @@ SQLITE_API int sqlite3changeset_start_v2(
 ** The following flags may passed via the 4th parameter to
 ** [sqlite3changeset_start_v2] and [sqlite3changeset_start_v2_strm]:
 **
-** <dt>SQLITE_CHANGESETAPPLY_INVERT <dd>
+** <dt>SQLITE_CHANGESETSTART_INVERT <dd>
 **   Invert the changeset while iterating through it. This is equivalent to
 **   inverting a changeset using sqlite3changeset_invert() before applying it.
 **   It is an error to specify this flag with a patchset.
+**
+** <dt>SQLITE_CHANGESETSTART_FULL <dd>
+**   Do not trim extra fields added to fullchangeset changesets.
 */
 #define SQLITE_CHANGESETSTART_INVERT        0x0002
+#define SQLITE_CHANGESETSTART_FULL          0x0004
 
 
 /*
@@ -13238,6 +13376,7 @@ struct Fts5ExtensionApi {
 ** Applications may also register custom tokenizer types. A tokenizer
 ** is registered by providing fts5 with a populated instance of the
 ** following structure. All structure methods must be defined, setting
+**
 ** any member of the fts5_tokenizer struct to NULL leads to undefined
 ** behaviour. The structure methods are expected to function as follows:
 **
